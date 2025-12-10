@@ -5,7 +5,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
-open abstract class ColorPalette(
+sealed abstract class ColorPalette(
     val primary: Color,
     val onPrimary: Color,
     val primaryContainer: Color,
