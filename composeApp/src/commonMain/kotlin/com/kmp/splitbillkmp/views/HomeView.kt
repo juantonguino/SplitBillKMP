@@ -20,10 +20,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
@@ -35,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.kmp.splitbillkmp.componentes.MainCard
 import com.kmp.splitbillkmp.componentes.MainIconButton
 import com.kmp.splitbillkmp.componentes.MainRow
+import com.kmp.splitbillkmp.viewmodel.HomeViewModel
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,21 +45,19 @@ fun HomeView(){
         CenterAlignedTopAppBar(title = { Text("Top bar", fontWeight = FontWeight.Bold)})
     }){
         padding ->
-        BuildHomeViewContent(modifier = Modifier.padding(padding))
+        BuildHomeViewContent(
+            viewModel = rememberSaveable { HomeViewModel() },
+            modifier = Modifier.padding(padding))
     }
 }
 
 @Composable
-fun BuildHomeViewContent(modifier: Modifier){
-    var amount by rememberSaveable { mutableStateOf("") }
-    var selectedTip by rememberSaveable { mutableStateOf(10) }
-    var numberOfPeople by rememberSaveable { mutableStateOf(1) }
-    var totalTip by rememberSaveable { mutableStateOf(0.0) }
-    var total by rememberSaveable { mutableStateOf(0.0) }
-    var totalByPerson by rememberSaveable { mutableStateOf(0.0) }
-    var focusManager= LocalFocusManager.current
-
-    val options = listOf(10, 20, 30)
+fun BuildHomeViewContent(
+    modifier: Modifier,
+    viewModel: HomeViewModel
+){
+    val state by viewModel.uiState.collectAsState()
+    val focusManager= LocalFocusManager.current
 
     Column (modifier= modifier.pointerInput( key1 = Unit){
         detectTapGestures {
@@ -69,77 +67,63 @@ fun BuildHomeViewContent(modifier: Modifier){
         MainCard(title = "Hola", description = "Description") {
             OutlinedTextField(
                 label = {Text("Amount")},
-                value = amount, onValueChange = {amount = it},
+                value = state.amount,
+                onValueChange = viewModel::onAmountChange,
                 keyboardOptions = KeyboardOptions.Default.copy(
                     keyboardType = KeyboardType.Number
                 )
             )
-            Text(amount)
+            Text(state.amount)
             Row (
                 horizontalArrangement = Arrangement.spacedBy(space = 8.dp)
             ) {
-                options.forEach { option ->
+                viewModel.options.forEach { option ->
                     FilterChip(
-                        selected = selectedTip== option,
-                        onClick = {selectedTip = option},
+                        selected = state.selectedTip== option,
+                        onClick = {viewModel.onTipSelected(option)},
                         label = {Text("$option")}
                     )
                 }
             }
-            Text(selectedTip.toString(), fontSize = 50.sp)
+            Text(state.selectedTip.toString(), fontSize = 50.sp)
             Row {
                 MainIconButton(
                     imageVector = Icons.Default.ArrowCircleDown,
                     contentDescription = "Down",
-                    onClick = {numberOfPeople=downV2(numberOfPeople)},
+                    onClick = viewModel::decrementPeople,
                     modifier = Modifier
                 ){}
-                Text(text = numberOfPeople.toString(), fontSize = 50.sp)
+                Text(text = state.numberOfPeople.toString(), fontSize = 50.sp)
                 MainIconButton(
                     imageVector = Icons.Default.ArrowCircleUp,
                     contentDescription = "Up",
-                    onClick = {numberOfPeople++},
+                    onClick = viewModel::incrementPeople,
                     modifier = Modifier
                 ){}
             }
             Button(onClick = {
-                val amountDouble = amount.toDoubleOrNull() ?: 0.0
-                val calculateResult = calculateV2(amountDouble, selectedTip, numberOfPeople)
-                totalTip= calculateResult.first
-                total= calculateResult.second
-                totalByPerson= calculateResult.third
+                viewModel.calculate()
                 focusManager.clearFocus()
             }){
                 Text(text = "Calculate")
             }
         }
         MainCard(title = "Bill Summary", description = "Description") {
-            MainRow(title = "Tip Amount", total = totalTip.roundTowDecimals())
-            MainRow(title = "Total", total = total.roundTowDecimals())
+            MainRow(title = "Tip Amount", total = state.totalTip)
+            MainRow(title = "Total", total = state.total)
             Surface (
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
             ){
                 Text(
-                    text = "Each person should pay $${totalByPerson.roundTowDecimals()}",
+                    text = "Each person should pay $${state.totalByPerson}",
                     textAlign = TextAlign.Center,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(0.dp)
                 )
 
             }
         }
     }
-}
-
-fun downV2(number: Int): Int =if (number>1) number-1 else number
-
-fun Double.roundTowDecimals(): Double= kotlin.math.round(this * 100) / 100
-
-fun calculateV2(amount: Double, tip:Int, numberOfPeople:Int): Triple<Double, Double, Double>{
-    val tipRes= amount*(tip.toDouble()/ 100)
-    val totalWithTip= amount+tipRes
-    val totalByPerson= totalWithTip / numberOfPeople
-    return Triple(tipRes, totalWithTip, totalByPerson)
 }
